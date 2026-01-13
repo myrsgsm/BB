@@ -1,0 +1,1016 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Royal Sherwani - Advance Hub</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
+    
+    <style>
+        :root {
+            --maroon: #800000;
+            --gold: #D4AF37;
+            --cream: #FDF5E6;
+            --white: #FFFFFF;
+            --text: #333;
+            
+            /* Status Colors */
+            --st-pending: #d32f2f;
+            --st-work: #ed6c02;
+            --st-ready: #2e7d32;
+            --st-del: #757575;
+            --st-cncl: #000000;
+        }
+
+        * { box-sizing: border-box; font-family: 'Segoe UI', sans-serif; -webkit-tap-highlight-color: transparent; }
+        body { background: var(--cream); margin: 0; padding: 0; color: var(--text); overflow-x: hidden; }
+
+        /* HEADER */
+        header {
+            background: var(--maroon); color: var(--white); padding: 15px; 
+            display: flex; align-items: center; justify-content: space-between;
+            position: sticky; top: 0; z-index: 1000; box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+        }
+        .header-title { font-weight: 900; font-size: 18px; letter-spacing: 1px; display: flex; align-items: center; gap: 10px; }
+        
+        .header-center { font-size: 10px; font-weight: bold; background: rgba(255,255,255,0.2); padding: 4px 8px; border-radius: 10px; display: flex; align-items: center; gap: 5px; }
+        .status-dot { width: 8px; height: 8px; background: red; border-radius: 50%; display: inline-block; }
+        .status-dot.online { background: #00ff00; box-shadow: 0 0 5px #00ff00; }
+
+        .logout-btn { background: var(--gold); border: none; padding: 5px 10px; border-radius: 5px; font-weight: bold; color: var(--maroon); font-size: 11px; cursor: pointer; }
+
+        /* VIEWS */
+        .view { display: none; padding: 15px; padding-bottom: 80px; }
+        .view.active { display: block; animation: fadeIn 0.3s ease; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        /* BOOK CARDS */
+        .book-card {
+            background: var(--white); padding: 15px; border-radius: 15px; margin-bottom: 15px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.05); border-left: 6px solid var(--gold);
+            cursor: pointer; transition: 0.2s; position: relative;
+        }
+        .book-card:active { transform: scale(0.98); background: #fff8e1; }
+        .bc-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .bc-title { font-size: 18px; font-weight: 900; color: var(--maroon); }
+        .bc-series { font-size: 12px; font-weight: bold; color: #666; }
+        
+        .bc-stats-row { display: flex; flex-wrap: wrap; gap: 8px; font-size: 11px; font-weight: 700; color: #555; border-top: 1px dashed #ddd; padding-top: 8px; }
+        .stat-item span { font-weight: 900; }
+
+        /* FILTER BAR */
+        .filter-bar { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 5px; margin-bottom: 15px; scrollbar-width: none; }
+        .filter-btn { padding: 8px 12px; border-radius: 20px; font-size: 11px; font-weight: 900; border: 1px solid #ddd; background: white; white-space: nowrap; cursor: pointer; color: #666; }
+        .filter-btn.active { background: var(--maroon); color: white; border-color: var(--maroon); }
+
+        /* BILL GRID */
+        .bill-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 10px; }
+        .bill-slot {
+            background: var(--white); aspect-ratio: 1; border-radius: 12px;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            border: 2px solid transparent; box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            position: relative; cursor: pointer; text-align: center;
+        }
+        .bill-slot.PENDING { border-color: var(--st-pending); background: #fff5f5; }
+        .bill-slot.WORK { border-color: var(--st-work); background: #fff8e1; }
+        .bill-slot.READY { border-color: var(--st-ready); background: #e8f5e9; }
+        .bill-slot.DELIVERED { border-color: var(--st-del); background: #eee; opacity: 0.7; }
+        .bill-slot.CANCELLED { border-color: var(--st-cncl); background: #ccc; opacity: 0.6; }
+        
+        .b-no { font-size: 20px; font-weight: 900; color: var(--text); line-height: 1; }
+        .b-name { font-size: 10px; font-weight: 700; color: #666; margin-top: 2px; width: 90%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .b-date { font-size: 9px; font-weight: bold; color: #888; margin-top: 1px; }
+        .b-pkt { position: absolute; top: 5px; right: 5px; font-size: 9px; font-weight: 900; color: var(--maroon); background: #fff8e1; padding: 1px 4px; border-radius: 4px; border: 1px solid var(--gold); }
+        .b-badge { position: absolute; bottom: 8px; font-size: 9px; font-weight: 900; padding: 2px 6px; border-radius: 4px; color: white; }
+
+        /* MASTER BILL VIEW */
+        .bill-card-main { background: var(--white); padding: 20px; border-radius: 20px; box-shadow: 0 5px 15px rgba(0,0,0,0.08); margin-bottom: 20px; border-top: 5px solid var(--maroon); position: relative; }
+        .top-row { display: flex; justify-content: space-between; align-items: start; }
+        .big-no { font-size: 40px; font-weight: 900; color: var(--maroon); line-height: 1; }
+        .fin-box { display: flex; justify-content: space-between; margin-top: 20px; padding-top: 15px; border-top: 1px dashed #ddd; }
+        .due-txt { font-size: 24px; font-weight: 900; color: var(--st-pending); }
+        
+        .name-row { display: flex; align-items: center; gap: 8px; }
+        .edit-icon { color: #aaa; cursor: pointer; font-size: 16px; padding: 5px; }
+
+        .action-bar { display: flex; gap: 10px; margin-top: 15px; }
+        .btn-action { flex: 1; padding: 12px; border-radius: 10px; border: none; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 5px; font-size: 12px; }
+        .btn-gold { background: var(--gold); color: black; }
+        .btn-maroon { background: var(--maroon); color: white; }
+
+        /* TABS */
+        .tabs { display: flex; background: white; padding: 5px; border-radius: 12px; margin-bottom: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .tab { flex: 1; padding: 10px; text-align: center; font-weight: bold; font-size: 13px; border-radius: 8px; color: #888; cursor: pointer; }
+        .tab.active { background: var(--maroon); color: white; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        /* ITEMS (Detailed) */
+        .track-item { background: white; padding: 12px; border-radius: 10px; margin-bottom: 8px; border: 1px solid #eee; border-left: 4px solid var(--st-pending); }
+        .track-item.linked { border-left-color: var(--st-work); }
+        .track-item.packed { border-left-color: var(--st-ready); }
+        .track-item.delivered { border-left-color: var(--st-del); opacity: 0.8; }
+
+        .ti-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
+        .ti-name { font-weight: 900; font-size: 15px; }
+        
+        .ti-options { font-size: 11px; color: #555; display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 5px; }
+        .opt-tag { background: #f0f0f0; padding: 2px 6px; border-radius: 4px; border: 1px solid #ddd; }
+        .ti-note { font-size: 11px; color: var(--maroon); font-style: italic; background: #fff5f5; padding: 4px; border-radius: 4px; display: inline-block; margin-bottom: 5px; }
+
+        .ti-meta { font-size: 10px; color: #666; margin-top: 5px; display: flex; gap: 8px; font-weight: bold; background: #f9f9f9; padding: 6px; border-radius: 6px; align-items: center; }
+        .ti-status-pill { background: #333; color: white; padding: 2px 6px; border-radius: 4px; text-transform: uppercase; }
+
+        /* MEDIA GRID */
+        .media-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+        .media-box { aspect-ratio: 1; background: #ddd; border-radius: 8px; overflow: hidden; position: relative; border: 2px solid transparent; }
+        .media-box.selected { border-color: var(--maroon); border-width: 3px; }
+        .media-box img { width: 100%; height: 100%; object-fit: cover; }
+        .btn-del-media { position: absolute; top: 2px; right: 2px; background: red; color: white; border-radius: 50%; width: 24px; height: 24px; font-size: 14px; border: none; cursor: pointer; z-index: 5; display:flex; align-items:center; justify-content:center; box-shadow: 0 2px 5px rgba(0,0,0,0.3); }
+
+        /* MODALS */
+        .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); display: none; align-items: center; justify-content: center; z-index: 5000; }
+        .modal-body { background: white; width: 95%; max-width: 400px; padding: 20px; border-radius: 20px; max-height: 90vh; overflow-y: auto; position: relative; }
+        
+        /* CHART LIST & SECTIONS */
+        .chart-section-title { font-size: 12px; font-weight: 900; color: #777; background: #f0f0f0; padding: 5px 15px; margin-top: 15px; border-radius: 4px; text-transform: uppercase; letter-spacing: 1px; }
+        .chart-item { padding: 12px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; cursor: pointer; background: white; }
+        .chart-item:active { background: #f9f9f9; }
+        
+        .ci-red { border-left: 5px solid red; }
+        .ci-orange { border-left: 5px solid orange; }
+        .ci-yellow { border-left: 5px solid #FFD700; }
+        .ci-normal { border-left: 5px solid green; }
+        
+        .ci-date { font-size: 11px; font-weight: bold; color: #555; }
+        .ci-bill { font-size: 16px; font-weight: 900; color: var(--maroon); }
+
+        /* UPLOAD OVERLAY */
+        #upload-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 6000; display: none; flex-direction: column; align-items: center; justify-content: center; color: white; }
+        .spinner { width: 40px; height: 40px; border: 4px solid rgba(255,255,255,0.3); border-radius: 50%; border-top-color: var(--gold); animation: spin 1s ease-in-out infinite; margin-bottom: 15px; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .date-adj-row { display: flex; align-items: center; justify-content: center; gap: 15px; margin: 15px 0; background: #f5f5f5; padding: 10px; border-radius: 10px; }
+        .adj-btn { width: 35px; height: 35px; border-radius: 50%; border: none; font-weight: 900; cursor: pointer; background: var(--gold); }
+
+        .login-box { max-width: 300px; margin: 100px auto; text-align: center; }
+        input, select { width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 8px; margin-bottom: 10px; }
+        
+        /* Measurement Style */
+        .measure-block { background: #f9f9f9; padding: 10px; border-radius: 10px; margin-bottom: 10px; }
+        .measure-head { font-weight: 900; color: var(--maroon); border-bottom: 1px solid #ddd; margin-bottom: 5px; padding-bottom: 5px; }
+        .m-row { display: flex; justify-content: space-between; padding: 3px 0; font-size: 13px; font-weight: 500; border-bottom: 1px dashed #eee; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div style="display: flex; align-items: center; gap: 10px;">
+            <button id="back-btn" class="back-btn" onclick="handleBack()"><i class="ri-arrow-left-line"></i></button>
+            <div class="header-title">ROYAL SHERWANI</div>
+        </div>
+        
+        <div class="header-center">
+            <span id="status-dot" class="status-dot"></span>
+            <span id="status-txt">CONNECTING</span>
+        </div>
+
+        <button class="logout-btn" onclick="logout()">LOGOUT</button>
+    </header>
+
+    <div id="upload-overlay">
+        <div class="spinner"></div>
+        <div id="upload-text" style="font-weight: bold; font-size: 18px;">Uploading Media...</div>
+        <div style="font-size: 12px; color: #ccc;">Please wait, do not close.</div>
+    </div>
+
+    <div id="view-login" class="view">
+        <div class="login-box">
+            <h2 style="color:var(--maroon)">STAFF LOGIN</h2>
+            <input type="email" id="login-email" placeholder="Email">
+            <input type="password" id="login-pass" placeholder="Password">
+            <button onclick="handleLogin()" class="btn-action btn-maroon" style="width:100%">LOGIN</button>
+            <div style="margin-top:20px; font-size:12px; color:grey;" onclick="document.getElementById('config-modal').style.display='flex'">⚙️ Database Config</div>
+        </div>
+    </div>
+
+    <div id="view-books" class="view">
+        <h3 style="color:var(--maroon); margin-top:0;">Bill Books</h3>
+        <div id="books-list"></div>
+    </div>
+
+    <div id="view-list" class="view">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+            <div style="display:flex; align-items:center; gap:10px;">
+                <h3 style="color:var(--maroon); margin:0;" id="book-title-disp">Bills</h3>
+                <button onclick="openChart()" style="background:none; border:none; color:var(--maroon); font-size:24px; cursor:pointer;"><i class="ri-bar-chart-fill"></i></button>
+                <button onclick="openDeliveries()" style="background:none; border:none; color:var(--st-ready); font-size:24px; cursor:pointer;"><i class="ri-truck-line"></i></button>
+            </div>
+        </div>
+        
+        <div class="filter-bar">
+            <button class="filter-btn active" onclick="filterList('ALL')">ALL</button>
+            <button class="filter-btn" onclick="filterList('PENDING')">PENDING</button>
+            <button class="filter-btn" onclick="filterList('WORK')">WORK</button>
+            <button class="filter-btn" onclick="filterList('READY')">READY</button>
+            <button class="filter-btn" onclick="filterList('DELIVERED')">DELIVERED</button>
+            <button class="filter-btn" onclick="filterList('CANCELLED')">CANCELLED</button>
+        </div>
+
+        <div id="bill-grid" class="bill-grid"></div>
+    </div>
+
+    <div id="view-detail" class="view">
+        <div class="bill-card-main">
+            <div class="top-row">
+                <div>
+                    <div class="big-no" id="d-no">#000</div>
+                    <div class="name-row">
+                        <div style="font-size:18px; font-weight:bold;" id="d-name">Customer</div>
+                        <i class="ri-pencil-fill edit-icon" onclick="openEditModal()"></i>
+                    </div>
+                    <div style="font-size:14px; color:#555;" id="d-phone">Mobile</div>
+                    <div style="color:grey; font-size:12px;" id="d-date">Del: -</div>
+                </div>
+                <div style="text-align:right;">
+                    <span id="d-status" style="background:var(--st-pending); color:white; padding:4px 8px; border-radius:4px; font-size:10px; font-weight:bold;">PENDING</span>
+                </div>
+            </div>
+
+            <div class="fin-box">
+                <div>
+                    <div style="font-size:10px; font-weight:bold; color:grey;">TOTAL</div>
+                    <div style="font-size:18px; font-weight:bold;" id="d-total">₹0</div>
+                </div>
+                <div style="text-align:right;">
+                    <div style="font-size:10px; font-weight:bold; color:grey;">DUE</div>
+                    <div class="due-txt" id="d-due">₹0</div>
+                </div>
+            </div>
+
+            <div class="action-bar">
+                <button class="btn-action btn-gold" onclick="openMeasureModal()">📏 SIZE & SHARE</button>
+                <button class="btn-action btn-maroon" onclick="openOrderModal()">🏭 ORDER WORK</button>
+            </div>
+        </div>
+
+        <div class="tabs">
+            <div class="tab active" onclick="setTab(0)">PAYMENTS</div>
+            <div class="tab" onclick="setTab(1)">ITEMS</div>
+            <div class="tab" onclick="setTab(2)">MEDIA</div>
+        </div>
+
+        <div id="tab-0" class="tab-content active">
+            <div style="background:white; padding:15px; border-radius:15px;">
+                <h4 style="margin:0 0 10px 0;">History</h4>
+                <div id="pay-list"></div>
+                <div style="display:flex; gap:5px; margin-top:15px; border-top:1px solid #eee; padding-top:10px;">
+                    <input type="number" id="pay-amt" placeholder="Amount" style="margin:0;">
+                    <select id="pay-mode" style="width:80px; margin:0;"><option>Cash</option><option>UPI</option></select>
+                    <button onclick="addPayment()" class="btn-action btn-maroon" style="width:50px;">+</button>
+                </div>
+            </div>
+            <textarea id="staff-notes" style="width:100%; margin-top:15px; padding:10px; border-radius:10px; border:1px solid #ccc;" rows="3" placeholder="Notes..." onblur="saveNotes()"></textarea>
+        </div>
+
+        <div id="tab-1" class="tab-content">
+            <div id="item-list"></div>
+        </div>
+
+        <div id="tab-2" class="tab-content">
+            <div id="media-grid" class="media-grid"></div>
+            <div style="display:flex; gap:10px; margin-top:15px;">
+                <button class="btn-action btn-maroon" onclick="document.getElementById('cam-input').click()">📸 PHOTO</button>
+                <button class="btn-action btn-gold" id="rec-btn" onclick="toggleRecord()">🎤 REC</button>
+            </div>
+            <input type="file" id="cam-input" accept="image/*" capture="environment" style="display:none;" onchange="uploadPhoto(this)">
+        </div>
+    </div>
+
+    <div id="share-modal" class="modal">
+        <div class="modal-body">
+            <h3>Share Options</h3>
+            <p style="font-size:12px; color:grey;">Select a photo (Optional)</p>
+            
+            <div id="share-grid" class="media-grid" style="margin-bottom:15px;"></div>
+            
+            <div class="date-adj-row">
+                <button class="adj-btn" onclick="adjDate(-1)">-</button>
+                <div style="text-align:center;">
+                    <div style="font-size:10px; font-weight:bold; color:grey;">DELIVERY DATE</div>
+                    <div id="share-date-disp" style="font-size:16px; font-weight:900;">-</div>
+                </div>
+                <button class="adj-btn" onclick="adjDate(1)">+</button>
+            </div>
+
+            <div style="display:flex; gap:10px;">
+                <button class="btn-action btn-maroon" id="final-share-btn" onclick="shareViaSystem()" style="width:100%">SHARE <i class="ri-share-forward-fill"></i></button>
+            </div>
+            <button class="btn-action btn-gold" style="margin-top:10px; background:white; border:1px solid #ccc;" onclick="closeModal('share-modal')">CANCEL</button>
+        </div>
+    </div>
+
+    <div id="chart-modal" class="modal">
+        <div class="modal-body" style="max-height:80vh; overflow-y:auto; padding:0;">
+            <div style="padding:15px; border-bottom:1px solid #eee; position:sticky; top:0; background:white; z-index:10;">
+                <h3 style="margin:0; color:var(--maroon);" id="chart-title">URGENT WORK LIST</h3>
+            </div>
+            <div id="chart-list"></div>
+            <button onclick="closeModal('chart-modal')" style="width:100%; padding:15px; border:none; background:#eee; font-weight:bold; position:sticky; bottom:0;">CLOSE</button>
+        </div>
+    </div>
+
+    <div id="edit-cust-modal" class="modal">
+        <div class="modal-body">
+            <h3>Edit Bill Details</h3>
+            <label>Customer Name</label>
+            <input type="text" id="edit-name">
+            <label>Mobile</label>
+            <input type="text" id="edit-mob">
+            <label>Delivery Date</label>
+            <input type="date" id="edit-date">
+            <button onclick="saveCustDetails()" class="btn-action btn-maroon" style="width:100%">UPDATE</button>
+            <button onclick="closeModal('edit-cust-modal')" class="btn-action btn-gold" style="width:100%; margin-top:10px;">CANCEL</button>
+        </div>
+    </div>
+
+    <div id="viewer-modal" class="modal">
+        <div class="modal-body" style="background:black; padding:0; overflow:hidden; display:flex; align-items:center; justify-content:center; height:80vh;">
+            <div id="viewer-content" style="width:100%;"></div>
+            <button onclick="closeModal('viewer-modal')" style="position:absolute; top:15px; right:15px; background:white; border:none; padding:8px 12px; border-radius:50%; font-weight:bold;">✕</button>
+        </div>
+    </div>
+
+    <div id="measure-modal" class="modal">
+        <div class="modal-body">
+            <h3>📏 Measurements</h3>
+            <div id="m-body" style="display:grid; grid-template-columns:1fr 1fr; gap:10px; text-align:left;"></div>
+            <button class="btn-action btn-maroon" style="width:100%; margin-top:15px;" onclick="closeModal('measure-modal')">CLOSE</button>
+        </div>
+    </div>
+
+    <div id="order-modal" class="modal">
+        <div class="modal-body">
+            <h3>🏭 Order Factory Work</h3>
+            <div id="order-list"></div>
+            <button class="btn-action btn-maroon" style="width:100%; margin-top:15px;" onclick="closeModal('order-modal')">CANCEL</button>
+        </div>
+    </div>
+
+    <div id="config-modal" class="modal">
+        <div class="modal-body">
+            <h3>Database Config</h3>
+            <input type="text" id="conf-url" placeholder="URL">
+            <input type="text" id="conf-key" placeholder="Key">
+            <button onclick="saveConfig()" class="btn-action btn-maroon" style="width:100%">SAVE</button>
+            <button onclick="closeModal('config-modal')" class="btn-action btn-gold" style="width:100%; margin-top:10px;">CANCEL</button>
+        </div>
+    </div>
+
+    <script>
+        let supabaseClient, currentBill, mediaData = [], allBills = [], shareSelectedUrl = null, shareDateObj = new Date();
+        
+        // --- NAVIGATION STATE ---
+        window.history.pushState({view: 'view-books'}, '', '');
+
+        window.onpopstate = function(event) {
+            if(event.state && event.state.view) {
+                if(event.state.view === 'view-books') {
+                    // Close App logic usually requires browser close which scripts can't do easily
+                    // We just let it stay here
+                } else {
+                    showView(event.state.view);
+                }
+            } else {
+                showView('view-books');
+            }
+        };
+
+        window.onload = function() {
+            const url = localStorage.getItem('rs-url');
+            const key = localStorage.getItem('rs-key');
+            if(url && key) {
+                supabaseClient = supabase.createClient(url, key);
+                checkSession();
+            } else {
+                showView('view-login');
+            }
+        };
+
+        function saveConfig() {
+            localStorage.setItem('rs-url', document.getElementById('conf-url').value.trim());
+            localStorage.setItem('rs-key', document.getElementById('conf-key').value.trim());
+            location.reload();
+        }
+
+        async function checkSession() {
+            const { data } = await supabaseClient.auth.getSession();
+            if(data.session) {
+                document.getElementById('status-dot').className = 'status-dot online';
+                document.getElementById('status-txt').innerText = 'ONLINE';
+                showView('view-books');
+                loadBooks();
+            } else {
+                showView('view-login');
+            }
+        }
+
+        async function handleLogin() {
+            const e=document.getElementById('login-email').value, p=document.getElementById('login-pass').value;
+            const { error } = await supabaseClient.auth.signInWithPassword({email:e, password:p});
+            if(!error) checkSession(); else alert(error.message);
+        }
+
+        async function logout() { await supabaseClient.auth.signOut(); location.reload(); }
+
+        // --- NAVIGATION LOGIC ---
+        function navigateTo(viewId) {
+            window.history.pushState({view: viewId}, '', '');
+            showView(viewId);
+        }
+
+        function handleBack() {
+            window.history.back();
+        }
+
+        function showView(viewId) {
+            document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+            document.getElementById(viewId).classList.add('active');
+            
+            const backBtn = document.getElementById('back-btn');
+            if(viewId === 'view-books' || viewId === 'view-login') {
+                backBtn.style.display = 'none';
+            } else {
+                backBtn.style.display = 'block';
+            }
+        }
+
+        // --- STRICT STATUS LOGIC ---
+        function calculateStatus(items, inventory) {
+            if(!items || items.length === 0) return 'PENDING';
+
+            let statuses = [];
+            let allReady = true;
+            
+            items.forEach(it => {
+                const inv = inventory.find(i => i.bill_item_name && i.bill_item_name.trim() === it.name.trim());
+                
+                if (!inv) {
+                    statuses.push('Pending');
+                    allReady = false;
+                } else {
+                    const st = inv.status || 'Pending';
+                    const stLower = st.toLowerCase();
+                    const hasPkt = inv.pkt_ids && inv.pkt_ids.length > 0;
+                    
+                    const isPacked = stLower.includes('packed');
+                    const isReady = (isPacked && hasPkt) || st === 'DELIVERED';
+                    
+                    if(!isReady) allReady = false;
+                    statuses.push(st);
+                }
+            });
+
+            if (statuses.some(s => s === 'Pending')) return 'PENDING';
+            if (statuses.every(s => s === 'DELIVERED')) return 'DELIVERED';
+            if (allReady) return 'READY';
+            return 'WORK';
+        }
+
+        // --- HELPER: FORMAT DATE ---
+        function formatDate(dateStr) {
+            if (!dateStr) return '-';
+            const parts = dateStr.split('-');
+            if (parts.length === 3) return `${parts[2]}-${parts[1]}-${parts[0]}`;
+            return dateStr;
+        }
+
+        // --- BOOKS (ACCURATE COUNTING) ---
+        async function loadBooks() {
+            document.getElementById('books-list').innerHTML = 'Loading...';
+            const { data: books } = await supabaseClient.from('bill_books').select('*').order('id');
+            const list = document.getElementById('books-list');
+            list.innerHTML = '';
+
+            for(const b of books) {
+                // Fetch ALL bills for book
+                const { data: bills } = await supabaseClient.from('bills').select('*').eq('book_id', b.id);
+                if(!bills) continue;
+
+                // Bulk fetch inventory for these bills to calculate accurate status
+                const bNos = bills.map(bi => bi.bill_number);
+                const { data: inv } = await supabaseClient.from('inventory').select('*').in('bill_number', bNos);
+
+                let p=0, w=0, r=0, d=0, c=0;
+                
+                bills.forEach(bill => {
+                    let st = bill.status;
+                    if(st !== 'CANCELLED' && st !== 'DELIVERED') {
+                        const bInv = inv.filter(i => i.bill_number == bill.bill_number);
+                        st = calculateStatus(bill.items_json, bInv);
+                    }
+                    if(st === 'PENDING') p++;
+                    else if(st === 'WORK') w++;
+                    else if(st === 'READY') r++;
+                    else if(st === 'DELIVERED') d++;
+                    else if(st === 'CANCELLED') c++;
+                });
+
+                list.innerHTML += `
+                <div class="book-card" onclick="openBook('${b.id}', '${b.salesman_name}')">
+                    <div class="bc-head"><span class="bc-title">${b.salesman_name}</span><span class="bc-series">${b.start_num}-${b.end_num}</span></div>
+                    <div class="bc-stats-row">
+                        <span class="stat-item" style="color:var(--st-pending)">Pending: <span>${p}</span></span> |
+                        <span class="stat-item" style="color:var(--st-work)">Work: <span>${w}</span></span> |
+                        <span class="stat-item" style="color:var(--st-ready)">Ready: <span>${r}</span></span> |
+                        <span class="stat-item" style="color:var(--st-del)">Del: <span>${d}</span></span> |
+                        <span class="stat-item" style="color:black">Cncl: <span>${c}</span></span>
+                    </div>
+                </div>`;
+            }
+        }
+
+        // --- BILL LIST ---
+        async function openBook(id, name) {
+            document.getElementById('book-title-disp').innerText = name + " Bills";
+            navigateTo('view-list');
+            const grid = document.getElementById('bill-grid');
+            grid.innerHTML = 'Loading...';
+            
+            const { data: bills } = await supabaseClient.from('bills').select('*').eq('book_id', id).order('bill_number', {ascending: true});
+            const billNumbers = bills.map(b => b.bill_number);
+            const { data: inv } = await supabaseClient.from('inventory').select('*').in('bill_number', billNumbers);
+
+            allBills = bills.map(b => {
+                const bInv = inv.filter(i => i.bill_number == b.bill_number);
+                
+                let computedStatus = b.status; 
+                if(b.status !== 'CANCELLED' && b.status !== 'DELIVERED') {
+                    computedStatus = calculateStatus(b.items_json, bInv);
+                }
+
+                let packets = new Set();
+                bInv.forEach(i => {
+                    if(i.pkt_ids && i.pkt_ids.length > 0) i.pkt_ids.forEach(p => packets.add(p));
+                });
+                
+                return { ...b, computedStatus, packetStr: Array.from(packets).join(', ') };
+            });
+
+            renderBillList(allBills);
+        }
+
+        function renderBillList(bills) {
+            const grid = document.getElementById('bill-grid');
+            grid.innerHTML = '';
+            bills.forEach(b => {
+                let st = b.computedStatus;
+                let bg = st==='READY'?'#2e7d32':st==='PENDING'?'#d32f2f':st==='WORK'?'#ed6c02':st==='DELIVERED'?'#757575':'black';
+                
+                grid.innerHTML += `
+                <div class="bill-slot ${st}" onclick="openBill('${b.id}')">
+                    <div class="b-no">${b.bill_number}</div>
+                    <div class="b-name">${b.customer_name}</div>
+                    <div class="b-date">${formatDate(b.delivery_date)}</div>
+                    ${b.packetStr ? `<div class="b-pkt">Pkt: ${b.packetStr}</div>` : ''}
+                    <div class="b-badge" style="background:${bg}">${st}</div>
+                </div>`;
+            });
+        }
+
+        function filterList(type) {
+            document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+            event.target.classList.add('active');
+            if(type === 'ALL') renderBillList(allBills);
+            else renderBillList(allBills.filter(b => b.computedStatus === type));
+        }
+
+        // --- CHART LOGIC (Categorized) ---
+        function openChart() {
+            document.getElementById('chart-title').innerText = "URGENT WORK LIST";
+            renderChartList(allBills.filter(b => (b.computedStatus === 'PENDING' || b.computedStatus === 'WORK')));
+        }
+
+        function openDeliveries() {
+            document.getElementById('chart-title').innerText = "UPCOMING DELIVERIES";
+            renderChartList(allBills.filter(b => b.computedStatus === 'READY'));
+        }
+
+        function renderChartList(billList) {
+            const chartList = document.getElementById('chart-list');
+            chartList.innerHTML = '';
+            
+            // Sort by Date
+            billList.sort((a,b) => new Date(a.delivery_date) - new Date(b.delivery_date));
+
+            // Categories
+            const groups = { overdue: [], today: [], tomorrow: [], upcoming: [] };
+            const today = new Date(); today.setHours(0,0,0,0);
+
+            billList.forEach(b => {
+                const d = new Date(b.delivery_date); d.setHours(0,0,0,0);
+                const diff = (d - today) / (1000*60*60*24);
+                
+                if(diff < 0) groups.overdue.push(b);
+                else if(diff === 0) groups.today.push(b);
+                else if(diff === 1) groups.tomorrow.push(b);
+                else groups.upcoming.push(b);
+            });
+
+            // Helper to render
+            const renderGroup = (title, list, colorClass) => {
+                if(list.length === 0) return;
+                chartList.innerHTML += `<div class="chart-section-title">${title} (${list.length})</div>`;
+                list.forEach(b => {
+                    chartList.innerHTML += `
+                    <div class="chart-item ${colorClass}" onclick="openBillFromChart('${b.id}')">
+                        <div>
+                            <div class="ci-bill">#${b.bill_number}</div>
+                            <div style="font-size:12px; color:#555;">${b.customer_name}</div>
+                        </div>
+                        <div class="ci-date">${formatDate(b.delivery_date)}</div>
+                    </div>`;
+                });
+            };
+
+            renderGroup("🔴 OVERDUE", groups.overdue, "ci-red");
+            renderGroup("🟠 TODAY", groups.today, "ci-orange");
+            renderGroup("🟡 TOMORROW", groups.tomorrow, "ci-yellow");
+            renderGroup("🟢 UPCOMING", groups.upcoming, "ci-normal");
+
+            if(billList.length === 0) chartList.innerHTML = '<div style="padding:20px; text-align:center;">No Bills Found! 🎉</div>';
+
+            document.getElementById('chart-modal').style.display = 'flex';
+        }
+
+        function openBillFromChart(id) {
+            document.getElementById('chart-modal').style.display = 'none';
+            openBill(id);
+        }
+
+        // --- MASTER BILL DETAILS ---
+        async function openBill(id) {
+            navigateTo('view-detail');
+            const [bRes, pRes, mRes] = await Promise.all([
+                supabaseClient.from('bills').select('*').eq('id', id).single(),
+                supabaseClient.from('bill_payments').select('*').eq('bill_id', id).order('created_at', {ascending:false}),
+                supabaseClient.from('bill_media').select('*').eq('bill_id', id)
+            ]);
+
+            currentBill = bRes.data;
+            mediaData = mRes.data || [];
+            
+            const { data: inv } = await supabaseClient.from('inventory').select('*').eq('bill_number', currentBill.bill_number);
+
+            const strictStatus = (currentBill.status!=='CANCELLED' && currentBill.status!=='DELIVERED') ? calculateStatus(currentBill.items_json, inv) : currentBill.status;
+
+            renderHeader(currentBill, pRes.data, strictStatus);
+            renderItems(currentBill.items_json, inv || []);
+            renderMedia();
+            renderPayments(pRes.data);
+        }
+
+        function renderHeader(bill, payments, status) {
+            document.getElementById('d-no').innerText = "#" + bill.bill_number;
+            document.getElementById('d-name').innerText = bill.customer_name;
+            document.getElementById('d-phone').innerText = bill.customer_mobile || "No Mobile";
+            document.getElementById('d-date').innerText = "Del: " + formatDate(bill.delivery_date);
+            document.getElementById('d-total').innerText = "₹" + bill.total_amount;
+            
+            const paid = (payments||[]).reduce((s,p)=>s+p.amount,0);
+            document.getElementById('d-due').innerText = "₹" + (bill.total_amount - paid);
+            document.getElementById('staff-notes').value = bill.notes || '';
+            
+            const st = document.getElementById('d-status');
+            st.innerText = status;
+            st.style.background = status==='READY'?'var(--st-ready)':status==='PENDING'?'var(--st-pending)':status==='WORK'?'var(--st-work)':status==='DELIVERED'?'var(--st-del)':'black';
+        }
+
+        function renderItems(items, inventory) {
+            const list = document.getElementById('item-list');
+            list.innerHTML = '';
+            
+            if(!items) return;
+
+            items.forEach(it => {
+                const invItem = inventory.find(i => i.bill_item_name && i.bill_item_name.trim() === it.name.trim());
+                
+                const status = invItem ? invItem.status : 'Pending Order';
+                const loc = invItem ? (invItem.location || 'Unknown') : '-';
+                const id = invItem ? `ID: ${invItem.pcs_id}` : 'Not Linked';
+                const pkt = (invItem && invItem.pkt_ids && invItem.pkt_ids.length>0) ? `Pkt: ${invItem.pkt_ids.join(', ')}` : '';
+                
+                let cls = 'track-item';
+                let stLower = status.toLowerCase();
+                if(stLower.includes('packed') || status === 'READY') cls += ' packed';
+                else if(status === 'DELIVERED') cls += ' delivered';
+                else if(invItem) cls += ' linked';
+
+                let optsHtml = '';
+                if(it.options && it.options.length > 0) {
+                    optsHtml = `<div class="ti-options">${it.options.map(o=>`<span class="opt-tag">${o}</span>`).join('')}</div>`;
+                }
+                let noteHtml = it.note ? `<div class="ti-note">Note: ${it.note}</div>` : '';
+
+                list.innerHTML += `
+                <div class="${cls}">
+                    <div class="ti-top"><span class="ti-name">${it.name}</span><span class="ti-price">₹${it.price}</span></div>
+                    ${optsHtml}
+                    ${noteHtml}
+                    <div class="ti-meta">
+                        <span class="ti-status-pill">${status}</span>
+                        <span>${loc}</span>
+                        <span class="ti-tag">${id}</span>
+                        ${pkt ? `<span class="ti-tag" style="background:#fff8e1; border:1px solid #gold;">${pkt}</span>` : ''}
+                    </div>
+                </div>`;
+            });
+        }
+
+        function renderPayments(payments) {
+            const list = document.getElementById('pay-list');
+            list.innerHTML = '';
+            if(!payments || payments.length===0) {
+                list.innerHTML = '<div style="text-align:center; color:grey; padding:10px;">No Payments Found</div>';
+                return;
+            }
+            payments.forEach(p => {
+                const date = new Date(p.created_at).toLocaleString();
+                list.innerHTML += `<div style="display:flex; justify-content:space-between; padding:10px 0; border-bottom:1px solid #eee;">
+                    <span>${p.payment_type} (${p.payment_mode})<br><small style="color:grey">${date}</small></span>
+                    <b>₹${p.amount}</b>
+                </div>`;
+            });
+        }
+
+        function renderMedia() {
+            const grid = document.getElementById('media-grid');
+            grid.innerHTML = '';
+            mediaData.forEach(m => {
+                if(m.file_type === 'image') {
+                    grid.innerHTML += `<div class="media-box">
+                        <img src="${m.file_url}" onclick="openViewer('${m.file_url}', 'image')">
+                        <button class="btn-del-media" onclick="deleteMedia(event, '${m.id}')">✕</button>
+                    </div>`;
+                } else {
+                    grid.innerHTML += `<div class="media-box" style="background:#333; display:flex; align-items:center; justify-content:center; color:white; cursor:pointer;" onclick="openViewer('${m.file_url}', 'audio')">🎤 AUDIO<button class="btn-del-media" onclick="deleteMedia(event, '${m.id}')">✕</button></div>`;
+                }
+            });
+        }
+
+        // --- CUSTOMER EDITING ---
+        function openEditModal() {
+            document.getElementById('edit-name').value = currentBill.customer_name;
+            document.getElementById('edit-mob').value = currentBill.customer_mobile;
+            document.getElementById('edit-date').value = currentBill.delivery_date;
+            document.getElementById('edit-cust-modal').style.display = 'flex';
+        }
+
+        async function saveCustDetails() {
+            const name = document.getElementById('edit-name').value;
+            const mob = document.getElementById('edit-mob').value;
+            const date = document.getElementById('edit-date').value;
+            await supabaseClient.from('bills').update({ customer_name:name, customer_mobile:mob, delivery_date:date }).eq('id', currentBill.id);
+            closeModal('edit-cust-modal');
+            openBill(currentBill.id);
+        }
+
+        // --- SHARE LOGIC (Fix: Handle AbortError & Use Native Share Correctly) ---
+        function openMeasureModal() {
+            const m = currentBill.measurements || { upper: {}, lower: {} };
+            let h = `<div style="display:grid; grid-template-columns: 1fr 1fr; gap:15px;">`;
+            h += `<div class="measure-block"><div class="measure-head">UPPER</div>`;
+            for(let k in m.upper) if(m.upper[k]) h += `<div class="m-row"><span>${k}</span><b>${m.upper[k]}</b></div>`;
+            h += `</div><div class="measure-block"><div class="measure-head">LOWER</div>`;
+            for(let k in m.lower) if(m.lower[k]) h += `<div class="m-row"><span>${k}</span><b>${m.lower[k]}</b></div>`;
+            h += `</div></div>`;
+            
+            h += `<div style="margin-top:15px; text-align:center;">
+                    <button class="btn-action btn-gold" style="width:100%" onclick="openShareModal()">
+                        SHARE MEASUREMENTS <i class="ri-share-forward-fill"></i>
+                    </button>
+                  </div>`;
+            
+            document.getElementById('m-body').innerHTML = h;
+            document.getElementById('measure-modal').style.display = 'flex';
+        }
+
+        function openShareModal() {
+            closeModal('measure-modal');
+            const grid = document.getElementById('share-grid');
+            grid.innerHTML = '';
+            shareDateObj = new Date(currentBill.delivery_date || new Date());
+            updateShareDateUI();
+            mediaData.forEach(m => {
+                if(m.file_type==='image') grid.innerHTML += `<div class="media-box" onclick="selectShareImg(this, '${m.file_url}')"><img src="${m.file_url}"></div>`;
+            });
+            document.getElementById('share-modal').style.display = 'flex';
+        }
+
+        function selectShareImg(el, url) {
+            document.querySelectorAll('.media-box').forEach(b => b.classList.remove('selected'));
+            el.classList.add('selected');
+            shareSelectedUrl = url;
+        }
+
+        function adjDate(days) {
+            shareDateObj.setDate(shareDateObj.getDate() + days);
+            updateShareDateUI();
+        }
+        function updateShareDateUI() { document.getElementById('share-date-disp').innerText = shareDateObj.toLocaleDateString('en-GB'); }
+
+        async function shareViaSystem(skipPhoto) {
+            const m = currentBill.measurements || {};
+            let text = `*Bill #${currentBill.bill_number} - ${currentBill.customer_name}*\nDel: ${shareDateObj.toLocaleDateString('en-GB')}\n\n*MEASUREMENTS:*\n`;
+            if(m.upper) { text += `_UPPER:_\n`; for(let k in m.upper) if(m.upper[k]) text += `${k}: ${m.upper[k]}\n`; }
+            if(m.lower) { text += `\n_LOWER:_\n`; for(let k in m.lower) if(m.lower[k]) text += `${k}: ${m.lower[k]}\n`; }
+            
+            try {
+                if(!skipPhoto && shareSelectedUrl) {
+                    // Fetch image blob -> convert to File -> Share via Native System Panel
+                    const response = await fetch(shareSelectedUrl);
+                    const blob = await response.blob();
+                    const file = new File([blob], `Bill_${currentBill.bill_number}.jpg`, { type: blob.type });
+                    
+                    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                        await navigator.share({
+                            files: [file],
+                            text: text,
+                            title: 'Bill Details'
+                        });
+                        return; // Successfully shared via system
+                    }
+                }
+                
+                // Fallback: Share Text Only (if file not supported or no file)
+                await navigator.share({
+                    text: text,
+                    title: 'Bill Details'
+                });
+
+            } catch (err) {
+                // IMPORTANT: Only fallback to WhatsApp link if it's NOT a user cancellation (AbortError)
+                if (err.name !== 'AbortError') {
+                    console.error("Share failed:", err);
+                    const waLink = `https://wa.me/?text=${encodeURIComponent(text)}`;
+                    if(!skipPhoto && shareSelectedUrl) window.open(shareSelectedUrl, '_blank');
+                    setTimeout(() => window.open(waLink, '_blank'), 500);
+                }
+            }
+        }
+
+        // --- ORDER LOGIC ---
+        async function openOrderModal() {
+            const { data: inv } = await supabaseClient.from('inventory').select('bill_item_name').eq('bill_number', currentBill.bill_number);
+            const linked = new Set((inv||[]).map(i => i.bill_item_name.trim().toLowerCase()));
+            const list = document.getElementById('order-list');
+            list.innerHTML = '';
+            (currentBill.items_json||[]).forEach(it => {
+                if(!linked.has(it.name.trim().toLowerCase())) {
+                    list.innerHTML += `<button class="btn-action btn-gold" style="width:100%; margin-bottom:5px;" onclick="redirectToOrder('${it.name}')">${it.name} (ORDER) ➜</button>`;
+                }
+            });
+            if(list.innerHTML === '') list.innerHTML = '<small>All items linked/ordered.</small>';
+            document.getElementById('order-modal').style.display = 'flex';
+        }
+
+        function redirectToOrder(item) {
+            window.location.href = `OrderForm.html?bill=${currentBill.bill_number}&item=${encodeURIComponent(item)}`;
+        }
+
+        // --- HELPERS ---
+        function setTab(n) {
+            document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', i===n));
+            document.querySelectorAll('.tab-content').forEach((c,i) => c.style.display = i===n ? 'block' : 'none');
+        }
+        function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+        
+        async function addPayment() {
+            const amt = Number(document.getElementById('pay-amt').value);
+            if(!amt) return;
+            if(!confirm(`Confirm Payment: ₹${amt}?`)) return;
+            
+            await supabaseClient.from('bill_payments').insert([{ bill_id: currentBill.id, amount: amt, payment_type: 'BALANCE', payment_mode: document.getElementById('pay-mode').value }]);
+            await supabaseClient.from('bills').update({ received_amount: currentBill.received_amount + amt }).eq('id', currentBill.id);
+            openBill(currentBill.id);
+        }
+
+        function openViewer(url, type) {
+            document.getElementById('viewer-content').innerHTML = type==='image' ? `<img src="${url}" style="width:100%">` : `<audio src="${url}" controls autoplay></audio>`;
+            document.getElementById('viewer-modal').style.display = 'flex';
+        }
+
+        async function deleteMedia(event, id) {
+            event.stopPropagation(); // Stop opening viewer
+            if(confirm("Delete this media?")) {
+                await supabaseClient.from('bill_media').delete().eq('id', id);
+                openBill(currentBill.id);
+            }
+        }
+
+        // --- IMAGE COMPRESSION & UPLOAD ---
+        async function uploadPhoto(input) {
+            const file = input.files[0];
+            if(!file) return;
+
+            const overlay = document.getElementById('upload-overlay');
+            const overlayText = document.getElementById('upload-text');
+            const originalText = overlayText.innerText;
+
+            overlay.style.display = 'flex';
+
+            try {
+                // 1. Compression
+                overlayText.innerText = "Compression in Progress...";
+                const compressedFile = await compressImage(file);
+
+                // 2. Upload
+                overlayText.innerText = "Uploading Media...";
+                const name = `img_${Date.now()}`;
+                const { error } = await supabaseClient.storage.from('bill-media').upload(name, compressedFile);
+                
+                if(!error) {
+                    const { data } = supabaseClient.storage.from('bill-media').getPublicUrl(name);
+                    await supabaseClient.from('bill_media').insert([{ bill_id: currentBill.id, file_url: data.publicUrl, file_type: 'image' }]);
+                    openBill(currentBill.id);
+                } else {
+                    alert("Upload Failed: " + error.message);
+                }
+            } catch (err) {
+                alert("Error: " + err.message);
+            } finally {
+                overlay.style.display = 'none';
+                overlayText.innerText = originalText;
+                input.value = '';
+            }
+        }
+
+        function compressImage(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = (event) => {
+                    const img = new Image();
+                    img.src = event.target.result;
+                    img.onload = () => {
+                        const canvas = document.createElement('canvas');
+                        const MAX_WIDTH = 1200;
+                        const scaleSize = MAX_WIDTH / img.width;
+                        
+                        // Resize only if larger than MAX_WIDTH
+                        if (img.width > MAX_WIDTH) {
+                            canvas.width = MAX_WIDTH;
+                            canvas.height = img.height * scaleSize;
+                        } else {
+                            canvas.width = img.width;
+                            canvas.height = img.height;
+                        }
+
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+                        // Compress to JPEG at 0.7 quality
+                        canvas.toBlob((blob) => {
+                            resolve(blob);
+                        }, 'image/jpeg', 0.7);
+                    };
+                    img.onerror = (err) => reject(err);
+                };
+                reader.onerror = (err) => reject(err);
+            });
+        }
+
+        let mediaRecorder, audioChunks = [];
+        async function toggleRecord() {
+            const btn = document.getElementById('rec-btn');
+            if(btn.innerText.includes('REC')) {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaRecorder = new MediaRecorder(stream);
+                mediaRecorder.start();
+                audioChunks = [];
+                mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+                mediaRecorder.onstop = saveAudio;
+                btn.innerText = '⏹ STOP'; btn.style.background = 'red';
+            } else {
+                mediaRecorder.stop();
+                btn.innerText = '🎤 REC'; btn.style.background = 'var(--gold)';
+            }
+        }
+        async function saveAudio() {
+            document.getElementById('upload-overlay').style.display = 'flex';
+            const blob = new Blob(audioChunks, { type: 'audio/mp3' });
+            const name = `aud_${Date.now()}.mp3`;
+            await supabaseClient.storage.from('bill-media').upload(name, blob);
+            const { data } = supabaseClient.storage.from('bill-media').getPublicUrl(name);
+            await supabaseClient.from('bill_media').insert([{ bill_id: currentBill.id, file_url: data.publicUrl, file_type: 'audio' }]);
+            openBill(currentBill.id);
+            document.getElementById('upload-overlay').style.display = 'none';
+        }
+
+        async function saveNotes() { await supabaseClient.from('bills').update({ notes: document.getElementById('staff-notes').value }).eq('id', currentBill.id); }
+
+    </script>
+</body>
+</html>
+}
